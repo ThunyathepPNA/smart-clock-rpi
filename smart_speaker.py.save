@@ -1,0 +1,87 @@
+import firebase_admin
+from firebase_admin import credentials, db
+import os
+from google.cloud import texttospeech
+import threading
+import uuid 
+
+# --- Setup ---
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://smart-classroom-clock-default-rtdb.asia-southeast1.firebasedatabase.app/'
+})
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "serviceAccountKey.json"
+client = texttospeech.TextToSpeechClient()
+
+# สร้าง Lock ไว้ป้องกันเวลากดปุ่มหน้าเว็บรัวๆ
+speak_lock = threading.Lock()
+
+def speak(data):
+    with speak_lock:
+        try:
+            text = data.get('message', '')
+            lang = data.get('language', 'en')
+            vol = data.get('volume', 70)
+            
+            if not text: return
+            print(f"📢 Speaking: {text} | Lang: {lang}")
+            
+            # 1. ปรับระดับเสียง
+            safe_vol = min(max(int(vol), 0), 95)
+            os.system(f"amixer set Master {safe_vol}% > /dev/null 2>&1")
+            os.system(f"amixer set PCM {safe_vol}% > /dev/null 2>&1") 
+
+            # 2. เตรียมข้อความ (ส่งข้อความตรงๆ ไม่ต้องใช้ SSML หน่วงเวลาแล้ว)
+            synthesis_input = texttospeech.SynthesisInput(text=text)
+
+            # 3. เลือกเสียง
+            if lang == 'th':
+                voice_name = "th-TH-Neural2-C" 
+                language_code = "th-TH"            else: 
+                voice_name = "en-US-Neural2-C" 
+                language_code = "en-US"
+
+            voice = texttospeech.VoiceSelectionParams(
+                language_code=language_code,
+                name=voice_name
+            )
+
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=1.0
+            )
+
+            # 4. ยิง API ขอไฟล์เสียง
+            response = client.synthesize_speech(
+                input=synthesis_input, voice=voice, audio_config=audio_config
+            )
+
+            # 5. สร้างชื่อไฟล์แบบสุ่ม
+            temp_file = f"announce_{uuid.uuid4().hex[:6]}.mp3"
+            
+            with open(temp_file, "wb") as out:
+                out.write(response.audio_content)
+
+            # --- 🔥 ไม้ตาย: ใช้ mpg123 เล่นเสียง เตะฮาร์ดแวร์โดยตรง ---
+            # ตัว -q คือ quiet โหมด เพื่อไม่ให้มันปริ้นท์ข้อความรกเต็มหน้าจอ
+            os.system(f"mpg123 -q silence.mp3 {temp_file}")
+            
+            # 6. เล่นเสร็จแล้วเคลียร์ทิ้ง
+            if os.path.exists(temp_file):
+                os.remove(temp_file) 
+                
+        except Exception as e:
+            print(f"Error speaking: {e}")
+
+def on_command(event):
+    if event.data and isinstance(event.data, dict):
+        speak(event.data)
+
+print("🎧 Smart Speaker Ready (Version: mpg123 Ultimate Fix)")
+print("Waiting for commands...")
+
+try:
+    db.reference('tts/command').listen(on_command)
+except Exception as e:
+    print(f"Connection Error: {e}")
