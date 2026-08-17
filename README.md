@@ -1,20 +1,20 @@
 ```markdown
-# 📢 Smart Classroom Clock (Raspberry Pi Smart Speaker)
+#  Smart Classroom Clock (Raspberry Pi Smart Speaker)
 
 This repository contains the Python script running on the Raspberry Pi. It acts as the "Smart Speaker" for the Smart Classroom Clock system, fetching schedules from Firebase, generating speech via Google Cloud TTS, and sending display states to the ESP32 via Firebase Realtime Database.
 
-## 🚀 Features
+##  Features
 - **Real-time TTS**: Listens for instant announcement commands.
 - **Smart Scheduler**: Caches schedules and executes them down to the exact second.
 - **Heartbeat System**: Periodically updates its `last_seen` timestamp in Firebase to confirm online status.
 - **Hardware Integration**: Dynamically adjusts ALSA volume levels and plays `.mp3` directly via `mpg123`.
 
-## 🛠️ Prerequisites
+##  Prerequisites
 - Python 3.x
 - `mpg123` audio player (for playing TTS files)
 - Google Cloud Service Account credentials
 
-## ⚙️ Installation
+##  Installation
 
 **Install System Dependencies:**
    Install `mpg123` to handle MP3 playback on the Raspberry Pi:
